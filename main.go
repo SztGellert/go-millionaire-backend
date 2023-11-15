@@ -1,10 +1,9 @@
 package main
 
-import(
-    "fmt"
-    "example"
+import (
+	"github.com/SztGellert/go-millionaire-backend/example"
 )
 
 func main() {
-    example.hello()
+	example.Hello()
 }
