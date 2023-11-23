@@ -19,7 +19,7 @@ func handler(ctx context.Context, request events.APIGatewayV2HTTPRequest) (event
 
 	response := events.APIGatewayV2HTTPResponse{}
 
-	quizData, err := load_quiz.LoadQuizData()
+	quizData, err := load_quiz.LoadQuizData(request.QueryStringParameters["topic"], request.QueryStringParameters["difficulty"])
 	if err != nil {
 		response = events.APIGatewayV2HTTPResponse{Body: "Database error!", StatusCode: 500}
 		return response, nil

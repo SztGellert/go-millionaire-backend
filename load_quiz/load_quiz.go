@@ -32,7 +32,7 @@ func ConnectMongo() {
 	}
 }
 
-func LoadQuizData() ([]Question, error) {
+func LoadQuizData(topic string, difficulty string) ([]Question, error) {
 
 	credential := options.Credential{
 		Username: "admin",
@@ -47,16 +47,47 @@ func LoadQuizData() ([]Question, error) {
 	}
 
 	questionsCollection := client.Database("quiz").Collection("questions")
-	filter := bson.D{{"topic", "arts"}}
-
-	// retrieve all the documents that match the filter
-	cursor, err := questionsCollection.Find(ctx, filter)
-
 	var questions []Question
-	err = cursor.All(ctx, &questions)
 
-	if err != nil {
-		return nil, err
+	if difficulty != "" {
+		filter := bson.D{{"topic", topic}, {"difficulty", difficulty}}
+		// retrieve all the documents that match the filter
+		cursor, err := questionsCollection.Find(ctx, filter)
+		err = cursor.All(ctx, &questions)
+
+		if err != nil {
+			return nil, err
+		}
+	} else {
+
+		opts := options.Find().SetLimit(5)
+
+		// Find easy difficulty
+		var easyQuestions []Question
+		filter := bson.D{{"topic", topic}, {"difficulty", "easy"}}
+		cursor, err := questionsCollection.Find(ctx, filter, opts)
+		err = cursor.All(ctx, &easyQuestions)
+
+		// Find medium difficulty
+		var mediumQuestions []Question
+		filter = bson.D{{"topic", topic}, {"difficulty", "medium"}}
+		cursor, err = questionsCollection.Find(ctx, filter, opts)
+		err = cursor.All(ctx, &mediumQuestions)
+
+		// Find hard difficulty
+		var hardQuestions []Question
+		filter = bson.D{{"topic", topic}, {"difficulty", "hard"}}
+		cursor, err = questionsCollection.Find(ctx, filter, opts)
+		err = cursor.All(ctx, &hardQuestions)
+
+		if err != nil {
+			return nil, err
+		}
+
+		questions = append(questions, easyQuestions...)
+		questions = append(questions, mediumQuestions...)
+		questions = append(questions, hardQuestions...)
+
 	}
 
 	return questions, nil
