@@ -50,9 +50,11 @@ func LoadQuizData(topic string, difficulty string) ([]Question, error) {
 	var questions []Question
 
 	if difficulty != "" {
+		opts := options.Find().SetLimit(15)
+
 		filter := bson.D{{"topic", topic}, {"difficulty", difficulty}}
 		// retrieve all the documents that match the filter
-		cursor, err := questionsCollection.Find(ctx, filter)
+		cursor, err := questionsCollection.Find(ctx, filter, opts)
 		err = cursor.All(ctx, &questions)
 
 		if err != nil {
