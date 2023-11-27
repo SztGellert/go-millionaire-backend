@@ -21,22 +21,20 @@ func handler(ctx context.Context, request events.APIGatewayV2HTTPRequest) (event
 	// Switch for identifying the HTTP request
 	switch request.RequestContext.HTTP.Method {
 	case "GET":
-		if topic != "" {
-			quizData, err := load_quiz.LoadQuizData(request.QueryStringParameters["topic"], request.QueryStringParameters["difficulty"])
-			if err != nil {
-				response = events.APIGatewayV2HTTPResponse{Body: "Database error!", StatusCode: 500}
-				return response, nil
-			}
-			questionJson, err := json.Marshal(quizData)
-			if err != nil {
-				response = events.APIGatewayV2HTTPResponse{Body: "Service error!", StatusCode: 500}
-				return response, nil
-			}
 
-			response = events.APIGatewayV2HTTPResponse{Body: string(questionJson), StatusCode: 200}
-		} else {
-			response = events.APIGatewayV2HTTPResponse{Body: "Error: Query Parameter topic missing", StatusCode: 500}
+		quizData, err := load_quiz.LoadQuizData(request.QueryStringParameters["topic"], request.QueryStringParameters["difficulty"])
+		if err != nil {
+			response = events.APIGatewayV2HTTPResponse{Body: "Database error!", StatusCode: 500}
+			return response, nil
 		}
+		questionJson, err := json.Marshal(quizData)
+		if err != nil {
+			response = events.APIGatewayV2HTTPResponse{Body: "Service error!", StatusCode: 500}
+			return response, nil
+		}
+
+		response = events.APIGatewayV2HTTPResponse{Body: string(questionJson), StatusCode: 200}
+
 	}
 
 	// Response
