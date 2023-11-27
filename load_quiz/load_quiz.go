@@ -53,20 +53,22 @@ func LoadQuizData(topic string, difficulty string) ([]Question, error) {
 
 	if difficulty != "" {
 
-		pipeline := []bson.M{
-			{"$match": bson.M{
-				"difficulty": difficulty}},
-			{"$sample": bson.M{
-				"size": 15}},
-		}
+		sampleStage := bson.D{{"$sample", bson.D{{"size", 15}}}}
 
+		pipeline := mongo.Pipeline{}
 		if topic != "" {
-			pipeline = append(pipeline, bson.M{"$match": bson.M{"topic": topic}})
+			pipeline = append(pipeline, bson.D{{"$match", bson.M{"topic": topic}}})
+		}
+		pipeline = append(pipeline, bson.D{{"$match", bson.D{{"difficulty", difficulty}}}})
+		pipeline = append(pipeline, sampleStage)
+
+		opts := options.Aggregate().SetMaxTime(2 * time.Second)
+		cursor, err := questionsCollection.Aggregate(ctx, pipeline, opts)
+		if err != nil {
+			return nil, err
 		}
 
-		cursor, err := questionsCollection.Aggregate(ctx, pipeline)
 		err = cursor.All(ctx, &questions)
-
 		if err != nil {
 			return nil, err
 		}
@@ -76,49 +78,55 @@ func LoadQuizData(topic string, difficulty string) ([]Question, error) {
 		var mediumQuestions []Question
 		var hardQuestions []Question
 
-		// Find easy difficulty
-		easypipeline := []bson.M{
-			{"$match": bson.M{
-				"difficulty": "easy"}},
-			{"$sample": bson.M{
-				"size": 5}},
-		}
+		sampleStage := bson.D{{"$sample", bson.D{{"size", 5}}}}
+
+		easyPipeline := mongo.Pipeline{}
 		if topic != "" {
-			easypipeline = append(easypipeline, bson.M{"$match": bson.M{"topic": topic}})
+			easyPipeline = append(easyPipeline, bson.D{{"$match", bson.M{"topic": topic}}})
 		}
-		cursor, err := questionsCollection.Aggregate(ctx, easypipeline)
+		easyPipeline = append(easyPipeline, bson.D{{"$match", bson.D{{"difficulty", "easy"}}}})
+		easyPipeline = append(easyPipeline, sampleStage)
+
+		opts := options.Aggregate().SetMaxTime(2 * time.Second)
+		cursor, err := questionsCollection.Aggregate(ctx, easyPipeline, opts)
+		if err != nil {
+			return nil, err
+		}
+
 		err = cursor.All(ctx, &easyQuestions)
 		if err != nil {
 			return nil, err
 		}
 
-		// Find medium difficulty
-		mediumpipeline := []bson.M{
-			{"$match": bson.M{
-				"difficulty": "medium"}},
-			{"$sample": bson.M{
-				"size": 5}},
-		}
+		mediumPipeline := mongo.Pipeline{}
 		if topic != "" {
-			mediumpipeline = append(mediumpipeline, bson.M{"$match": bson.M{"topic": topic}})
+			easyPipeline = append(mediumPipeline, bson.D{{"$match", bson.M{"topic": topic}}})
 		}
-		cursor, err = questionsCollection.Aggregate(ctx, mediumpipeline)
+		easyPipeline = append(mediumPipeline, bson.D{{"$match", bson.D{{"difficulty", "medium"}}}})
+		easyPipeline = append(mediumPipeline, sampleStage)
+
+		cursor, err = questionsCollection.Aggregate(ctx, mediumPipeline, opts)
+		if err != nil {
+			fmt.Println(err)
+			return nil, err
+		}
 		err = cursor.All(ctx, &mediumQuestions)
 		if err != nil {
 			return nil, err
 		}
 
-		// Find hard difficulty
-		hardpipeline := []bson.M{
-			{"$match": bson.M{
-				"difficulty": "hard"}},
-			{"$sample": bson.M{
-				"size": 5}},
-		}
+		hardPipeline := mongo.Pipeline{}
 		if topic != "" {
-			hardpipeline = append(hardpipeline, bson.M{"$match": bson.M{"topic": topic}})
+			easyPipeline = append(mediumPipeline, bson.D{{"$match", bson.M{"topic": topic}}})
 		}
-		cursor, err = questionsCollection.Aggregate(ctx, hardpipeline)
+		easyPipeline = append(mediumPipeline, bson.D{{"$match", bson.D{{"difficulty", "hard"}}}})
+		easyPipeline = append(mediumPipeline, sampleStage)
+
+		cursor, err = questionsCollection.Aggregate(ctx, hardPipeline, opts)
+		if err != nil {
+			fmt.Println(err)
+			return nil, err
+		}
 		err = cursor.All(ctx, &hardQuestions)
 		if err != nil {
 			return nil, err
