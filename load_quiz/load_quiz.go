@@ -117,10 +117,10 @@ func LoadQuizData(topic string, difficulty string) ([]Question, error) {
 
 		hardPipeline := mongo.Pipeline{}
 		if topic != "" {
-			easyPipeline = append(mediumPipeline, bson.D{{"$match", bson.M{"topic": topic}}})
+			easyPipeline = append(hardPipeline, bson.D{{"$match", bson.M{"topic": topic}}})
 		}
-		easyPipeline = append(mediumPipeline, bson.D{{"$match", bson.D{{"difficulty", "hard"}}}})
-		easyPipeline = append(mediumPipeline, sampleStage)
+		easyPipeline = append(hardPipeline, bson.D{{"$match", bson.D{{"difficulty", "hard"}}}})
+		easyPipeline = append(hardPipeline, sampleStage)
 
 		cursor, err = questionsCollection.Aggregate(ctx, hardPipeline, opts)
 		if err != nil {
