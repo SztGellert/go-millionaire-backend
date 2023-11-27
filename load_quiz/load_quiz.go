@@ -8,6 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"log"
+	"time"
 )
 
 func ConnectMongo() {
@@ -38,23 +39,32 @@ func LoadQuizData(topic string, difficulty string) ([]Question, error) {
 		Username: "admin",
 		Password: "admin",
 	}
-
-	ctx := context.TODO()
-
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://172.31.21.185:27017").SetAuth(credential))
+	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+	mongourl := "mongodb://172.31.21.185:27017"
+	defer cancel()
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongourl).SetAuth(credential))
 	if err != nil {
 		return nil, err
 	}
 
 	questionsCollection := client.Database("quiz").Collection("questions")
+
 	var questions []Question
 
 	if difficulty != "" {
-		opts := options.Find().SetLimit(15)
 
-		filter := bson.D{{"topic", topic}, {"difficulty", difficulty}}
-		// retrieve all the documents that match the filter
-		cursor, err := questionsCollection.Find(ctx, filter, opts)
+		pipeline := []bson.M{
+			{"$match": bson.M{
+				"difficulty": difficulty}},
+			{"$sample": bson.M{
+				"size": 15}},
+		}
+
+		if topic != "" {
+			pipeline = append(pipeline, bson.M{"$match": bson.M{"topic": topic}})
+		}
+
+		cursor, err := questionsCollection.Aggregate(ctx, pipeline)
 		err = cursor.All(ctx, &questions)
 
 		if err != nil {
@@ -62,26 +72,54 @@ func LoadQuizData(topic string, difficulty string) ([]Question, error) {
 		}
 	} else {
 
-		opts := options.Find().SetLimit(5)
+		var easyQuestions []Question
+		var mediumQuestions []Question
+		var hardQuestions []Question
 
 		// Find easy difficulty
-		var easyQuestions []Question
-		filter := bson.D{{"topic", topic}, {"difficulty", "easy"}}
-		cursor, err := questionsCollection.Find(ctx, filter, opts)
+		easypipeline := []bson.M{
+			{"$match": bson.M{
+				"difficulty": "easy"}},
+			{"$sample": bson.M{
+				"size": 5}},
+		}
+		if topic != "" {
+			easypipeline = append(easypipeline, bson.M{"$match": bson.M{"topic": topic}})
+		}
+		cursor, err := questionsCollection.Aggregate(ctx, easypipeline)
 		err = cursor.All(ctx, &easyQuestions)
+		if err != nil {
+			return nil, err
+		}
 
 		// Find medium difficulty
-		var mediumQuestions []Question
-		filter = bson.D{{"topic", topic}, {"difficulty", "medium"}}
-		cursor, err = questionsCollection.Find(ctx, filter, opts)
+		mediumpipeline := []bson.M{
+			{"$match": bson.M{
+				"difficulty": "medium"}},
+			{"$sample": bson.M{
+				"size": 5}},
+		}
+		if topic != "" {
+			mediumpipeline = append(mediumpipeline, bson.M{"$match": bson.M{"topic": topic}})
+		}
+		cursor, err = questionsCollection.Aggregate(ctx, mediumpipeline)
 		err = cursor.All(ctx, &mediumQuestions)
+		if err != nil {
+			return nil, err
+		}
 
 		// Find hard difficulty
-		var hardQuestions []Question
-		filter = bson.D{{"topic", topic}, {"difficulty", "hard"}}
-		cursor, err = questionsCollection.Find(ctx, filter, opts)
+		hardpipeline := []bson.M{
+			{"$match": bson.M{
+				"difficulty": "hard"}},
+			{"$sample": bson.M{
+				"size": 5}},
+		}
+		if topic != "" {
+			hardpipeline = append(hardpipeline, bson.M{"$match": bson.M{"topic": topic}})
+		}
+		cursor, err = questionsCollection.Aggregate(ctx, hardpipeline)
 		err = cursor.All(ctx, &hardQuestions)
-
 		if err != nil {
 			return nil, err
 		}
