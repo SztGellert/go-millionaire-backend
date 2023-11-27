@@ -15,10 +15,7 @@ func main() {
 func handler(ctx context.Context, request events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
 
 	response := events.APIGatewayV2HTTPResponse{}
-	// Obtain the QueryStringParameter
-	topic := request.QueryStringParameters["topic"]
 
-	// Switch for identifying the HTTP request
 	switch request.RequestContext.HTTP.Method {
 	case "GET":
 
@@ -34,10 +31,8 @@ func handler(ctx context.Context, request events.APIGatewayV2HTTPRequest) (event
 		}
 
 		response = events.APIGatewayV2HTTPResponse{Body: string(questionJson), StatusCode: 200}
-
 	}
 
-	// Response
 	return response, nil
 
 }
