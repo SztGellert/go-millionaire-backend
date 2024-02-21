@@ -14,3 +14,9 @@ type QuestionDetails struct {
 	Answers            []string `bson:"answers" json:"answers"`
 	CorrectAnswerIndex int32    `bson:"correct_answer_index" json:"correct_answer_index"`
 }
+
+type RequestBody struct {
+	EasyQuestionExceptions   []int32 `bson:"easyQuestions" json:"easyQuestions"`
+	MediumQuestionExceptions []int32 `bson:"mediumQuestions" json:"mediumQuestions"`
+	HardQuestionExceptions   []int32 `bson:"hardQuestions" json:"hardQuestions"`
+}
