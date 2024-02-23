@@ -20,3 +20,14 @@ type RequestBody struct {
 	MediumQuestionExceptions []int32 `bson:"mediumQuestions" json:"mediumQuestions"`
 	HardQuestionExceptions   []int32 `bson:"hardQuestions" json:"hardQuestions"`
 }
+
+type LoadResponse struct {
+	Questions []Question `bson:"questions" json:"questions"`
+	Exception Exception  `bson:"exception" json:"exception"`
+}
+
+type Exception struct {
+	ResetEasyFilter   bool `bson:"resetEasyFilter" json:"resetEasyFilter"`
+	ResetMediumFilter bool `bson:"resetMediumFilter" json:"resetMediumFilter"`
+	ResetHardFilter   bool `bson:"resetHardFilter" json:"resetHardFilter"`
+}

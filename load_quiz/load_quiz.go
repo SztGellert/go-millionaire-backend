@@ -34,7 +34,7 @@ func ConnectMongo() {
 	}
 }
 
-func LoadQuizData(topic string, difficulty string, exceptions string) ([]Question, error) {
+func LoadQuizData(topic string, difficulty string, exceptions string) (LoadResponse, error) {
 
 	mongoUser := os.Getenv("MONGODB_USER")
 	mongoPassword := os.Getenv("MONGODB_PASSWORD")
@@ -49,13 +49,13 @@ func LoadQuizData(topic string, difficulty string, exceptions string) ([]Questio
 	defer cancel()
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURI).SetAuth(credential))
 	if err != nil {
-		return nil, err
+		return LoadResponse{}, err
 	}
 	exceptionRequest := RequestBody{}
 	if exceptions != "" {
 		err = json.Unmarshal([]byte(exceptions), &exceptionRequest)
 		if err != nil {
-			return nil, err
+			return LoadResponse{}, err
 		}
 	}
 
@@ -65,27 +65,46 @@ func LoadQuizData(topic string, difficulty string, exceptions string) ([]Questio
 	questionsCollection := client.Database(mongoDatabase).Collection(mongoCollection)
 
 	var questions []Question
+	var resetEasyFilter, resetMediumFilter, resetHardFilter bool
 
 	if difficulty != "" {
 		var exceptionsList []int32
-
+		var resetFilter bool
 		if exceptions != "" {
 			switch difficulty {
 			case "easy":
 				exceptionsList = exceptionRequest.EasyQuestionExceptions
+				resetEasyFilter = resetFilter
 			case "medium":
 				exceptionsList = exceptionRequest.MediumQuestionExceptions
+				resetMediumFilter = resetFilter
 			default:
 				exceptionsList = exceptionRequest.HardQuestionExceptions
+				resetHardFilter = resetFilter
 			}
 		}
 
 		sampleStage := bson.D{{"$sample", bson.D{{"size", 15}}}}
 
 		pipeline := mongo.Pipeline{}
-		if exceptions != "" {
-			pipeline = append(pipeline, bson.D{{"$match", bson.D{{"id", bson.D{{"$nin", exceptionsList}}}}}})
+		var filter bson.D
+		var countOpts *options.CountOptions
+		var count int64
+
+		if exceptions != "" && exceptionsList != nil {
+			filter = bson.D{{"id", bson.D{{"$nin", exceptionsList}}}}
+			count, err = questionsCollection.CountDocuments(context.TODO(), filter, countOpts)
+			if err != nil {
+				return LoadResponse{}, err
+			}
+			if count >= 15 {
+				pipeline = append(pipeline, bson.D{{"$match", filter}})
+
+			} else {
+				resetFilter = true
+			}
 		}
+
 		if topic != "" {
 			pipeline = append(pipeline, bson.D{{"$match", bson.M{"topic": topic}}})
 		}
@@ -95,12 +114,12 @@ func LoadQuizData(topic string, difficulty string, exceptions string) ([]Questio
 		opts := options.Aggregate().SetMaxTime(2 * time.Second)
 		cursor, err := questionsCollection.Aggregate(ctx, pipeline, opts)
 		if err != nil {
-			return nil, err
+			return LoadResponse{}, err
 		}
 
 		err = cursor.All(ctx, &questions)
 		if err != nil {
-			return nil, err
+			return LoadResponse{}, err
 		}
 	} else {
 
@@ -120,10 +139,12 @@ func LoadQuizData(topic string, difficulty string, exceptions string) ([]Questio
 			countOpts = options.Count().SetMaxTime(2 * time.Second)
 			count, err = questionsCollection.CountDocuments(context.TODO(), filter, countOpts)
 			if err != nil {
-				return nil, err
+				return LoadResponse{}, err
 			}
 			if count >= 15 {
 				easyPipeline = append(easyPipeline, bson.D{{"$match", filter}})
+			} else {
+				resetEasyFilter = true
 			}
 		}
 		if topic != "" {
@@ -135,12 +156,12 @@ func LoadQuizData(topic string, difficulty string, exceptions string) ([]Questio
 		opts := options.Aggregate().SetMaxTime(2 * time.Second)
 		cursor, err := questionsCollection.Aggregate(ctx, easyPipeline, opts)
 		if err != nil {
-			return nil, err
+			return LoadResponse{}, err
 		}
 
 		err = cursor.All(ctx, &easyQuestions)
 		if err != nil {
-			return nil, err
+			return LoadResponse{}, err
 		}
 
 		mediumPipeline := mongo.Pipeline{}
@@ -148,10 +169,12 @@ func LoadQuizData(topic string, difficulty string, exceptions string) ([]Questio
 			filter = bson.D{{"id", bson.D{{"$nin", exceptionRequest.MediumQuestionExceptions}}}}
 			count, err = questionsCollection.CountDocuments(context.TODO(), filter, countOpts)
 			if err != nil {
-				return nil, err
+				return LoadResponse{}, err
 			}
 			if count >= 15 {
 				mediumPipeline = append(mediumPipeline, bson.D{{"$match", filter}})
+			} else {
+				resetMediumFilter = true
 			}
 		}
 		if topic != "" {
@@ -162,11 +185,11 @@ func LoadQuizData(topic string, difficulty string, exceptions string) ([]Questio
 
 		cursor, err = questionsCollection.Aggregate(ctx, mediumPipeline, opts)
 		if err != nil {
-			return nil, err
+			return LoadResponse{}, err
 		}
 		err = cursor.All(ctx, &mediumQuestions)
 		if err != nil {
-			return nil, err
+			return LoadResponse{}, err
 		}
 
 		hardPipeline := mongo.Pipeline{}
@@ -174,10 +197,12 @@ func LoadQuizData(topic string, difficulty string, exceptions string) ([]Questio
 			filter = bson.D{{"id", bson.D{{"$nin", exceptionRequest.HardQuestionExceptions}}}}
 			count, err = questionsCollection.CountDocuments(context.TODO(), filter, countOpts)
 			if err != nil {
-				return nil, err
+				return LoadResponse{}, err
 			}
 			if count >= 15 {
 				hardPipeline = append(hardPipeline, bson.D{{"$match", filter}})
+			} else {
+				resetHardFilter = true
 			}
 		}
 		if topic != "" {
@@ -188,11 +213,11 @@ func LoadQuizData(topic string, difficulty string, exceptions string) ([]Questio
 
 		cursor, err = questionsCollection.Aggregate(ctx, hardPipeline, opts)
 		if err != nil {
-			return nil, err
+			return LoadResponse{}, err
 		}
 		err = cursor.All(ctx, &hardQuestions)
 		if err != nil {
-			return nil, err
+			return LoadResponse{}, err
 		}
 
 		questions = append(questions, easyQuestions...)
@@ -201,5 +226,5 @@ func LoadQuizData(topic string, difficulty string, exceptions string) ([]Questio
 
 	}
 
-	return questions, nil
+	return LoadResponse{Questions: questions, Exception: Exception{ResetEasyFilter: resetEasyFilter, ResetMediumFilter: resetMediumFilter, ResetHardFilter: resetHardFilter}}, nil
 }
